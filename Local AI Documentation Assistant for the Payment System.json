@@ -1,0 +1,346 @@
+{
+  "nodes": [
+    {
+      "parameters": {
+        "formTitle": "Загрузка документа в базу знаний",
+        "formDescription": "Прикрепите PDF с документацией по платёжной системе — он будет автоматически добавлен в базу знаний ассистента.",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "PDF файл",
+              "fieldType": "file",
+              "multipleFiles": false,
+              "acceptFileTypes": ".pdf",
+              "requiredField": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "8394d1a9-baa2-4e68-9cc2-332931365844",
+      "name": "Загрузка документа",
+      "type": "n8n-nodes-base.formTrigger",
+      "position": [
+        128,
+        496
+      ],
+      "webhookId": "9013d0d1-7e6b-44a8-8c2d-870ea77f5340",
+      "typeVersion": 2.2
+    },
+    {
+      "parameters": {
+        "model": "nomic-embed-text:latest"
+      },
+      "id": "b0d94c6f-bc9f-4a7e-8314-c3d321ca4fd7",
+      "name": "Embeddings Ollama",
+      "type": "@n8n/n8n-nodes-langchain.embeddingsOllama",
+      "position": [
+        352,
+        736
+      ],
+      "typeVersion": 1,
+      "credentials": {
+        "ollamaApi": {
+          "id": "mtiHIrlEUtfsOGRj",
+          "name": "Ollama account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chunkOverlap": 150,
+        "options": {}
+      },
+      "id": "469de585-b379-4ddc-8ea5-27b8a1a418b1",
+      "name": "Recursive Character Text Splitter",
+      "type": "@n8n/n8n-nodes-langchain.textSplitterRecursiveCharacterTextSplitter",
+      "position": [
+        528,
+        896
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "dataType": "binary",
+        "binaryMode": "specificField",
+        "binaryDataKey": "={{ Object.keys($input.item.binary)[0] }}",
+        "options": {}
+      },
+      "id": "30e8a969-ef71-4cc7-ae85-91f3f836a274",
+      "name": "Default Data Loader",
+      "type": "@n8n/n8n-nodes-langchain.documentDefaultDataLoader",
+      "position": [
+        528,
+        704
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "mode": "insert",
+        "qdrantCollection": {
+          "__rl": true,
+          "mode": "list",
+          "value": "payment_docs",
+          "cachedResultName": "payment_docs"
+        },
+        "options": {}
+      },
+      "id": "0c658371-de14-4f44-91db-f92a5c4dadc7",
+      "name": "Qdrant Vector Store",
+      "type": "@n8n/n8n-nodes-langchain.vectorStoreQdrant",
+      "position": [
+        480,
+        496
+      ],
+      "typeVersion": 1,
+      "credentials": {
+        "qdrantApi": {
+          "id": "5N9PFHkKOxkchbKk",
+          "name": "Qdrant account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "9a30cfb1-90f4-423d-ac62-54ec7130e345",
+      "name": "When chat message received",
+      "type": "@n8n/n8n-nodes-langchain.chatTrigger",
+      "position": [
+        128,
+        1088
+      ],
+      "webhookId": "b0000000-0000-4000-8000-000000000008",
+      "typeVersion": 1.1
+    },
+    {
+      "parameters": {
+        "options": {
+          "systemMessage": "Ты — внутренний ассистент по платёжной системе.\nДля ответа на любой вопрос сначала используй инструмент payment_docs_tool, чтобы найти релевантные фрагменты во внутренней документации.\nОтвечай только на основании найденной информации и истории диалога.\nЕсли нужной информации не нашлось, честно скажи, что в базе знаний это не описано — не выдумывай названия параметров, API, настроек, ошибок или последовательности действий.\nДля практических инструкций давай пошаговые действия.\nЕсли в тексте найденного фрагмента есть номер раздела или название документа — можешь их указать. Никогда не придумывай ссылки, URL или адреса — если их нет буквально в тексте фрагмента, просто не упоминай источник вообще."
+        }
+      },
+      "id": "d4af1dea-8c80-4de0-b54a-51350dfce8d8",
+      "name": "AI Agent",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "position": [
+        480,
+        1088
+      ],
+      "typeVersion": 1.7
+    },
+    {
+      "parameters": {},
+      "id": "fb6152d8-c8fa-4ce0-922b-fb8967e8bb66",
+      "name": "Window Buffer Memory",
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "position": [
+        352,
+        1280
+      ],
+      "typeVersion": 1.3
+    },
+    {
+      "parameters": {
+        "model": "qwen3:8b",
+        "options": {}
+      },
+      "id": "a486166c-148c-4004-920c-a46e96f4cab5",
+      "name": "Ollama Chat Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOllama",
+      "position": [
+        528,
+        1280
+      ],
+      "typeVersion": 1,
+      "credentials": {
+        "ollamaApi": {
+          "id": "mtiHIrlEUtfsOGRj",
+          "name": "Ollama account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "name": "payment_docs_tool",
+        "description": "Получить информацию из внутренней документации по платёжной системе (правила, настройки процессов, инструкции)."
+      },
+      "id": "bcfdc3f9-cd32-40ba-9895-9a269adfbdf8",
+      "name": "Vector Store Tool",
+      "type": "@n8n/n8n-nodes-langchain.toolVectorStore",
+      "position": [
+        848,
+        1280
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "qdrantCollection": {
+          "__rl": true,
+          "mode": "list",
+          "value": "payment_docs",
+          "cachedResultName": "payment_docs"
+        },
+        "options": {}
+      },
+      "id": "ee355d3a-96ec-42b6-9f06-9d0bb8e353ec",
+      "name": "Qdrant Vector Store (Retrieval)",
+      "type": "@n8n/n8n-nodes-langchain.vectorStoreQdrant",
+      "position": [
+        768,
+        1504
+      ],
+      "typeVersion": 1,
+      "credentials": {
+        "qdrantApi": {
+          "id": "5N9PFHkKOxkchbKk",
+          "name": "Qdrant account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "model": "nomic-embed-text:latest"
+      },
+      "id": "23fc675c-ea38-4e90-9ce8-d3254a153b0b",
+      "name": "Embeddings Ollama (retrieval)",
+      "type": "@n8n/n8n-nodes-langchain.embeddingsOllama",
+      "position": [
+        752,
+        1664
+      ],
+      "typeVersion": 1,
+      "credentials": {
+        "ollamaApi": {
+          "id": "mtiHIrlEUtfsOGRj",
+          "name": "Ollama account"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Загрузка документа": {
+      "main": [
+        [
+          {
+            "node": "Qdrant Vector Store",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Embeddings Ollama": {
+      "ai_embedding": [
+        [
+          {
+            "node": "Qdrant Vector Store",
+            "type": "ai_embedding",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Recursive Character Text Splitter": {
+      "ai_textSplitter": [
+        [
+          {
+            "node": "Default Data Loader",
+            "type": "ai_textSplitter",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Default Data Loader": {
+      "ai_document": [
+        [
+          {
+            "node": "Qdrant Vector Store",
+            "type": "ai_document",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "When chat message received": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Window Buffer Memory": {
+      "ai_memory": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ollama Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          },
+          {
+            "node": "Vector Store Tool",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Vector Store Tool": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Qdrant Vector Store (Retrieval)": {
+      "ai_vectorStore": [
+        [
+          {
+            "node": "Vector Store Tool",
+            "type": "ai_vectorStore",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Embeddings Ollama (retrieval)": {
+      "ai_embedding": [
+        [
+          {
+            "node": "Qdrant Vector Store (Retrieval)",
+            "type": "ai_embedding",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "9f3147e41e07e0d3096adf28dfbed608f2b75ec003d7fe664da842f028d3bdf2"
+  }
+}
